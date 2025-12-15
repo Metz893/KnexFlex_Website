@@ -3,41 +3,20 @@
 import { useEffect, useState } from "react";
 
 export default function Home() {
-  const [status, setStatus] = useState<
-    "checking" | "offline" | "online"
-  >("checking");
+  const [status, setStatus] = useState<"checking" | "offline" | "online">(
+    "checking"
+  );
 
   useEffect(() => {
-    let decided = false;
-
-    const ws = new WebSocket("ws://192.168.4.1:81");
-
-    const timeout = setTimeout(() => {
-      if (!decided) {
-        decided = true;
-        setStatus("online");
-        window.location.href = "/online/dashboard";
-        ws.close();
-      }
-    }, 800);
-
-    ws.onopen = () => {
-      if (decided) return;
-      decided = true;
-      clearTimeout(timeout);
+    // If loaded from ESP IP → OFFLINE
+    if (window.location.hostname === "192.168.4.1") {
       setStatus("offline");
-      window.location.href = "/offline/dashboard";
-      ws.close();
-    };
-
-    ws.onerror = () => {
-      // handled by timeout
-    };
-
-    return () => {
-      clearTimeout(timeout);
-      ws.close();
-    };
+      window.location.replace("/offline/dashboard");
+    } else {
+      // Anything else (Vercel, localhost, phone data)
+      setStatus("online");
+      window.location.replace("/online/dashboard");
+    }
   }, []);
 
   return (
@@ -48,16 +27,13 @@ export default function Home() {
         alignItems: "center",
         justifyContent: "center",
         fontFamily: "system-ui, sans-serif",
-        background: "#fafafa",
       }}
     >
-      <div style={{ textAlign: "center" }}>
-        <h1 style={{ marginBottom: 12 }}>KnexFlex</h1>
-
-        {status === "checking" && <p>Detecting device…</p>}
-        {status === "offline" && <p>Connecting to device…</p>}
-        {status === "online" && <p>Loading cloud dashboard…</p>}
-      </div>
+      <p>
+        {status === "checking" && "Detecting connection…"}
+        {status === "offline" && "Connecting to device…"}
+        {status === "online" && "Loading cloud dashboard…"}
+      </p>
     </div>
   );
 }
