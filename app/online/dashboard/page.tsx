@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 import NavBar from "@/app/components/NavBar";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
