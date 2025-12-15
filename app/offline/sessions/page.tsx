@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import NavBar from "@/app/components/NavBar";
+import NavBar from "@/components/NavBar";
 
 const DB_KEY = "knexflex_sessions";
 
