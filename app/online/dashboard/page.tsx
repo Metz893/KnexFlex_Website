@@ -102,11 +102,10 @@ export default function OnlineDashboard() {
   /* Actions */
   /* ----------------------------- */
 
-  const router = useRouter();
 
   const openOffline = () => {
     // Works only when connected to ESP Wi-Fi
-    router.push("/offline/dashboard");
+    window.open("http://192.168.4.1");
   };
 
   const uploadLocal = async (s: LocalSession) => {
