@@ -8,63 +8,47 @@ import { useAuth } from "@/lib/auth";
 
 export default function Navbar() {
   const { user } = useAuth();
-  const pathname = usePathname();
+  const path = usePathname();
 
-  const NavItem = ({
-    href,
-    label,
-  }: {
-    href: string;
-    label: string;
-  }) => {
-    const active = pathname.startsWith(href);
-    return (
-      <Link
-        href={href}
-        className={`rounded-lg px-3 py-1.5 text-sm transition ${
-          active
-            ? "bg-blue-50 text-blue-700 font-medium"
-            : "text-slate-600 hover:text-slate-900"
-        }`}
-      >
-        {label}
-      </Link>
-    );
-  };
+  const Item = ({ href, label }: any) => (
+    <Link
+      href={href}
+      className={`px-3 py-1.5 rounded-lg text-sm ${
+        path.startsWith(href)
+          ? "bg-blue-100 text-blue-700"
+          : "text-slate-600 hover:text-slate-900"
+      }`}
+    >
+      {label}
+    </Link>
+  );
 
   return (
     <header className="border-b bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        {/* Left */}
-        <div className="flex items-center gap-6">
+      <div className="max-w-6xl mx-auto flex justify-between px-4 py-3">
+        <div className="flex gap-4 items-center">
           <Link
             href="/online/dashboard"
-            className="text-lg font-semibold text-blue-600"
+            className="font-semibold text-blue-600"
           >
             KnexFlex
           </Link>
-
-          <nav className="flex items-center gap-1">
-            <NavItem href="/online/dashboard" label="Dashboard" />
-            <NavItem href="/online/sessions" label="Sessions" />
-            <NavItem href="/online/import" label="Import" />
-          </nav>
+          <Item href="/online/dashboard" label="Dashboard" />
+          <Item href="/online/sessions" label="Sessions" />
+          <Item href="/online/import" label="Import" />
+          <Item href="/online/community" label="Community" />
         </div>
 
-        {/* Right */}
-        <div className="flex items-center gap-4">
+        <div className="flex gap-3 items-center">
           <span className="text-xs text-slate-500">
-            {user?.email ?? "Not signed in"}
+            {user?.email}
           </span>
-
-          {user && (
-            <button
-              onClick={() => signOut(auth)}
-              className="rounded-lg border px-3 py-1.5 text-sm hover:bg-slate-50"
-            >
-              Sign out
-            </button>
-          )}
+          <button
+            onClick={() => signOut(auth)}
+            className="border rounded-lg px-3 py-1.5 text-sm"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </header>
