@@ -3,15 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import SectionTitle from "@/components/SectionTitle";
+import GaitCycleChart from "@/components/GaitCycleChart";
 import { useAuth } from "@/lib/auth";
 import { analyzeGaitAngles } from "@/lib/gaitAnalysis";
-import GaitCycleChart from "@/components/GaitCycleChart";
 import {
   collection,
   getDocs,
-  orderBy,
   query,
+  orderBy,
   limit,
+  where,
   addDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -37,21 +38,22 @@ export default function CommunityPage() {
   const { user } = useAuth();
 
   const [rows, setRows] = useState<CommunityRow[]>([]);
-  const [status, setStatus] = useState<string>("");
+  const [yourAverageCycle, setYourAverageCycle] = useState<number[] | null>(null);
+  const [status, setStatus] = useState("");
 
   /* ================================
      Load community data
   ================================ */
 
   useEffect(() => {
-    const load = async () => {
-      const q = query(
-        collection(db, "community_gait"),
-        orderBy("createdAtMs", "desc"),
-        limit(30)
+    const loadCommunity = async () => {
+      const snap = await getDocs(
+        query(
+          collection(db, "community_gait"),
+          orderBy("createdAtMs", "desc"),
+          limit(30)
+        )
       );
-
-      const snap = await getDocs(q);
 
       const parsed: CommunityRow[] = snap.docs.map((d) => {
         const data = d.data() as any;
@@ -70,8 +72,44 @@ export default function CommunityPage() {
       setRows(parsed);
     };
 
-    load();
+    loadCommunity();
   }, []);
+
+  /* ================================
+     Load YOUR latest session
+  ================================ */
+
+  useEffect(() => {
+    if (!user) return;
+
+    const loadLatestSession = async () => {
+      const snap = await getDocs(
+        query(
+          collection(db, "sessions"),
+          where("uid", "==", user.uid),
+          orderBy("createdAtMs", "desc"),
+          limit(1)
+        )
+      );
+
+      if (snap.empty) return;
+
+      const session = snap.docs[0].data() as any;
+
+      if (!Array.isArray(session.samples)) return;
+
+      const analysis = analyzeGaitAngles(session.samples);
+
+      if (
+        analysis?.averageCycle &&
+        analysis.averageCycle.length > 0
+      ) {
+        setYourAverageCycle(analysis.averageCycle);
+      }
+    };
+
+    loadLatestSession();
+  }, [user]);
 
   /* ================================
      Compute cohort average
@@ -104,7 +142,7 @@ export default function CommunityPage() {
       return;
     }
 
-    if (!cohortAverage) {
+    if (!yourAverageCycle || yourAverageCycle.length === 0) {
       setStatus("No valid gait data to share.");
       return;
     }
@@ -116,7 +154,7 @@ export default function CommunityPage() {
       injury: "ACL",
       weeksSinceInjury: 6,
       leg: "left",
-      averageCycle: cohortAverage,
+      averageCycle: yourAverageCycle,
     });
 
     setStatus("Shared anonymously ✅");
@@ -136,7 +174,7 @@ export default function CommunityPage() {
       <Card title="Community Average">
         {!cohortAverage ? (
           <p className="text-sm text-slate-500">
-            Not enough data yet.
+            Not enough community data yet.
           </p>
         ) : (
           <GaitCycleChart cycles={[]} average={cohortAverage} />

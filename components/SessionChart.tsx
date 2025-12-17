@@ -70,14 +70,16 @@ export default function SessionChart({
             type="monotone"
             dataKey="angle"
             dot={false}
+            stroke="#2563eb" 
             strokeWidth={2}
-            name="Angle"
+            name="Original"
           />
           {overlayData && (
             <Line
               type="monotone"
               dataKey="overlay"
               dot={false}
+              stroke="#dc2626"
               strokeWidth={2}
               name="Overlay"
             />
