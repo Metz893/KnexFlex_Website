@@ -5,10 +5,13 @@ import { usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+
 
 export default function Navbar() {
   const { user } = useAuth();
   const path = usePathname();
+  const router = useRouter();
 
   const Item = ({ href, label }: any) => (
     <Link
@@ -44,8 +47,11 @@ export default function Navbar() {
             {user?.email}
           </span>
           <button
-            onClick={() => signOut(auth)}
-            className="border rounded-lg px-3 py-1.5 text-sm"
+            onClick={async () => {
+              await signOut(auth);
+              router.replace("/login");
+          }}
+          className="border rounded-lg px-3 py-1.5 text-sm"
           >
             Sign out
           </button>
