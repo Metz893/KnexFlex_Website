@@ -13,65 +13,60 @@ import {
 export default function GaitCycleChart({
   cycles,
   average,
+  comparisonStroke,
+  cyclesStroke,
 }: {
   cycles: number[][];
   average: number[];
+  comparisonStroke?: string; // NEW: used when cycles.length === 1 (comparison mode)
+  cyclesStroke?: string; // NEW: used for normal faint cycles
 }) {
-  // Build chart data: x = normalized time (%)
   const data = average.map((val, i) => ({
     t: i, // 0–99
     avg: val,
     ...Object.fromEntries(cycles.map((c, idx) => [`c${idx}`, c[i]])),
   }));
 
-  // If there's exactly one cycle, we treat it as a comparison average
   const isComparison = cycles.length === 1;
+
+  const faintStroke = cyclesStroke ?? "#94a3b8"; // default grey
+  const compareStroke = comparisonStroke ?? "#2563eb"; // default blue
 
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
-
           <XAxis
             dataKey="t"
             tickFormatter={(v) => `${v}%`}
-            label={{
-              value: "Normalized Time",
-              position: "insideBottom",
-              offset: -4,
-            }}
+            label={{ value: "Normalized Time", position: "insideBottom", offset: -4 }}
           />
-
           <YAxis
             domain={[0, 140]}
             tickFormatter={(v) => `${v}°`}
-            label={{
-              value: "Angle",
-              angle: -90,
-              position: "insideLeft",
-            }}
+            label={{ value: "Angle", angle: -90, position: "insideLeft" }}
           />
-
           <Tooltip
             formatter={(v: any) => `${Number(v).toFixed(1)}°`}
             labelFormatter={(l) => `Time: ${l}%`}
           />
 
-          {/* Cycles (either faint individual cycles OR blue comparison avg) */}
+          {/* Cycles */}
           {cycles.map((_, i) => (
             <Line
               key={i}
               type="monotone"
               dataKey={`c${i}`}
-              stroke={isComparison ? "#2563eb" : "#94a3b8"} // 🔵 vs grey
+              stroke={isComparison ? compareStroke : faintStroke}
               dot={false}
               strokeWidth={isComparison ? 2.5 : 1}
               opacity={isComparison ? 0.9 : 0.3}
+              strokeDasharray={isComparison ? "0" : "0"}
             />
           ))}
 
-          {/* Current session average (always bold black) */}
+          {/* Average */}
           <Line
             type="monotone"
             dataKey="avg"
