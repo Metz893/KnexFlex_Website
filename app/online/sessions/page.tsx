@@ -6,7 +6,15 @@ import Link from "next/link";
 import Card from "@/components/Card";
 import SectionTitle from "@/components/SectionTitle";
 import { useAuth } from "@/lib/auth";
-import { listCloudSessions, deleteCloudSession, type CloudSession } from "@/lib/firestore";
+import {
+  listCloudSessions,
+  deleteCloudSession,
+  type CloudSession
+} from "@/lib/firestore";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+
 
 export default function OnlineSessions() {
   const { user } = useAuth();
@@ -16,6 +24,12 @@ export default function OnlineSessions() {
   const [q, setQ] = useState("");
   const [tag, setTag] = useState("");
   const [sort, setSort] = useState<"new" | "old" | "samples">("new");
+
+  // -----------------------------
+  // NEW: rename state
+  // -----------------------------
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [tempName, setTempName] = useState("");
 
   const load = async () => {
     if (!user) {
@@ -90,14 +104,22 @@ export default function OnlineSessions() {
             placeholder="Search title, notes, tags…"
           />
 
-          <select value={tag} onChange={(e) => setTag(e.target.value)} className="rounded-xl border bg-white px-3 py-2 text-sm">
+          <select
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+            className="rounded-xl border bg-white px-3 py-2 text-sm"
+          >
             <option value="">All tags</option>
             {tags.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
 
-          <select value={sort} onChange={(e) => setSort(e.target.value as any)} className="rounded-xl border bg-white px-3 py-2 text-sm">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as any)}
+            className="rounded-xl border bg-white px-3 py-2 text-sm"
+          >
             <option value="new">Newest first</option>
             <option value="old">Oldest first</option>
             <option value="samples">Most samples</option>
@@ -121,9 +143,21 @@ export default function OnlineSessions() {
                   className="flex items-center justify-between rounded-xl border bg-white px-4 py-3"
                 >
                   <div className="space-y-0.5">
-                    <Link href={`/online/sessions/${s.id}`} className="text-sm font-semibold text-blue-600 hover:underline">
-                      {s.displayName ?? s.title}
-                    </Link>
+                    {editingId === s.id ? (
+                      <input
+                        value={tempName}
+                        onChange={(e) => setTempName(e.target.value)}
+                        className="rounded-md border px-2 py-1 text-sm"
+                        autoFocus
+                      />
+                    ) : (
+                      <Link
+                        href={`/online/sessions/${s.id}`}
+                        className="text-sm font-semibold text-blue-600 hover:underline"
+                      >
+                        {s.displayName ?? s.title}
+                      </Link>
+                    )}
 
                     <div className="text-xs text-slate-500">
                       {created.toLocaleString()} • {s.sampleCount} samples
@@ -144,7 +178,28 @@ export default function OnlineSessions() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Link href={`/online/sessions/${s.id}`} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-slate-50">
+                    <button
+                      onClick={async () => {
+                        if (editingId === s.id) {
+                          await updateDoc(doc(db, "sessions", s.id), {
+                            displayName: tempName
+                          });
+                          setEditingId(null);
+                          await load();
+                        } else {
+                          setEditingId(s.id);
+                          setTempName(s.displayName ?? s.title ?? "");
+                        }
+                      }}
+                      className="rounded-lg border px-3 py-1.5 text-xs hover:bg-slate-50"
+                    >
+                      {editingId === s.id ? "Save" : "Rename"}
+                    </button>
+
+                    <Link
+                      href={`/online/sessions/${s.id}`}
+                      className="rounded-lg border px-3 py-1.5 text-xs hover:bg-slate-50"
+                    >
                       Open
                     </Link>
 
