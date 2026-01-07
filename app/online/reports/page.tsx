@@ -9,6 +9,7 @@ import { listCloudSessions, createShareLink } from "@/lib/firestore";
 import { computeStats, type Sample } from "@/lib/analytics";
 import { computeQuality } from "@/lib/analyticsPro";
 import { analyzeGaitAngles } from "@/lib/gaitAnalysis";
+import { analyzeSprintingAngles } from "@/lib/sprintGaitAnalysis";
 import { buildClinicianReportHTML, openPrintWindow } from "@/lib/reporting";
 import { shareUrl } from "@/lib/share";
 

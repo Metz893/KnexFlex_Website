@@ -7,7 +7,16 @@ import { useAuth } from "@/lib/auth";
 import { listCloudSessions } from "@/lib/firestore";
 import type { Sample } from "@/lib/analytics";
 import { analyzeGaitAngles } from "@/lib/gaitAnalysis";
+import { analyzeSprintingAngles } from "@/lib/sprintGaitAnalysis";
 import GaitCycleChart from "@/components/GaitCycleChart";
+
+type SessionType = "walk" | "sprint" | "other";
+
+function getType(s: any): SessionType {
+  const t = s?.sessionType;
+  if (t === "walk" || t === "sprint" || t === "other") return t;
+  return "walk"; // default for older sessions
+}
 
 export default function GaitLabPage() {
   const { user } = useAuth();
@@ -51,11 +60,22 @@ export default function GaitLabPage() {
     [compareSamples]
   );
 
-  const gait = useMemo(() => analyzeGaitAngles(angles), [angles]);
-  const compareGait = useMemo(
-    () => analyzeGaitAngles(compareAngles),
-    [compareAngles]
-  );
+  // ✅ NEW: choose analyzer by sessionType (active)
+  const gait = useMemo(() => {
+    const t = getType(active);
+    if (t === "other") return null;
+    if (t === "sprint") return analyzeSprintingAngles(angles);
+    return analyzeGaitAngles(angles);
+  }, [angles, active]);
+
+  // ✅ NEW: choose analyzer by sessionType (compare)
+  const compareGait = useMemo(() => {
+    if (!compareId) return null;
+    const t = getType(compare);
+    if (t === "other") return null;
+    if (t === "sprint") return analyzeSprintingAngles(compareAngles);
+    return analyzeGaitAngles(compareAngles);
+  }, [compareAngles, compare, compareId]);
 
   const comparisonStats = useMemo(() => {
     if (!gait || !compareGait) return null;
@@ -63,8 +83,12 @@ export default function GaitLabPage() {
     const avgA = gait.averageCycle;
     const avgB = compareGait.averageCycle;
 
+    // If somehow lengths differ, don’t crash
+    const n = Math.min(avgA.length, avgB.length);
+    if (n < 5) return null;
+
     const mad =
-      avgA.reduce((sum, v, i) => sum + Math.abs(v - avgB[i]), 0) / avgA.length;
+      avgA.slice(0, n).reduce((sum, v, i) => sum + Math.abs(v - avgB[i]), 0) / n;
 
     return {
       peakFlexDiff: gait.peakFlexion - compareGait.peakFlexion,
@@ -94,11 +118,12 @@ export default function GaitLabPage() {
         }
       />
 
-      {/* ORIGINAL — UNCHANGED */}
+      {/* ORIGINAL — UNCHANGED (except gait source) */}
       <Card title="Normalized Cycles">
         {!gait ? (
           <p className="text-sm text-slate-600">
-            Not enough valid cycles detected. Try a longer walking session or cleaner signal.
+            Not enough valid cycles detected for this session type. Try a longer session
+            or cleaner signal.
           </p>
         ) : (
           <div className="space-y-4">
@@ -170,10 +195,10 @@ export default function GaitLabPage() {
             {/* Interpretation */}
             <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
               <p>
-                This comparison overlays the <b>average gait cycle</b> from two
-                sessions. Differences in timing (heel strike / toe off) indicate
-                cadence or stance-phase changes, while amplitude differences
-                reflect altered joint loading, fatigue, or compensation.
+                This comparison overlays the <b>average gait cycle</b> from two sessions.
+                Differences in timing (heel strike / toe off) indicate cadence or stance-phase
+                changes, while amplitude differences reflect altered joint loading, fatigue,
+                or compensation.
               </p>
             </div>
           </div>

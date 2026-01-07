@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { listCloudSessions } from "@/lib/firestore";
 import type { Sample } from "@/lib/analytics";
 import { analyzeGaitAngles } from "@/lib/gaitAnalysis";
+import { analyzeSprintingAngles } from "@/lib/sprintGaitAnalysis";
 import GaitCycleChart from "@/components/GaitCycleChart";
 import SessionChart from "@/components/SessionChart";
 import {
@@ -38,6 +39,13 @@ function corr(a: number[], b: number[]) {
     db += xb * xb;
   }
   return Math.sqrt(da * db) === 0 ? NaN : num / Math.sqrt(da * db);
+}
+
+function analyzeByType(angles: number[], sessionType?: string) {
+  const mode = (sessionType ?? "walk") as any;
+  if (mode === "sprint") return analyzeSprintingAngles(angles);
+  if (mode === "walk") return analyzeGaitAngles(angles);
+  return null;
 }
 
 export default function CommunityPage() {
@@ -97,8 +105,8 @@ export default function CommunityPage() {
   );
 
   const myGait = useMemo(
-    () => analyzeGaitAngles(activeAngles),
-    [activeAngles]
+    () => analyzeByType(activeAngles, active?.sessionType),
+    [activeAngles, active?.sessionType]
   );
 
   const pickedCommunity = useMemo(

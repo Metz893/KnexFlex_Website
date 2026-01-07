@@ -34,6 +34,7 @@ type CloudSession = {
   createdAtMs: number;
   samples: number[];
   sampleCount: number;
+  sessionType?: "walk" | "sprint" | "other";
 };
 
 /* ----------------------------- */
@@ -121,6 +122,7 @@ export default function OnlineDashboard() {
         createdAtMs: s.createdAt,
         samples: s.samples,
         sampleCount: s.samples.length,
+        sessionType: s.sessionType ?? "walk",
       });
 
       deleteLocalSession(s.id);

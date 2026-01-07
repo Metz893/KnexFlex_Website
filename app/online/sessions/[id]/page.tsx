@@ -16,6 +16,7 @@ import {
   type Sample,
 } from "@/lib/analytics";
 import { analyzeGaitAngles } from "@/lib/gaitAnalysis";
+import { analyzeSprintingAngles } from "@/lib/sprintGaitAnalysis";
 import { downloadTextFile } from "@/lib/fileTransfer";
 
 export default function SessionDocPage() {
@@ -71,8 +72,20 @@ export default function SessionDocPage() {
   ----------------------------- */
   const gait = useMemo(() => {
     if (!samples.length) return null;
-    return analyzeGaitAngles(samples.map((s) => s.angle));
-  }, [samples]);
+
+    const mode = (session?.sessionType ?? "walk") as any;
+
+    if (mode === "sprint") {
+      return analyzeSprintingAngles(samples.map((s) => s.angle));
+    }
+
+    if (mode === "walk") {
+      return analyzeGaitAngles(samples.map((s) => s.angle));
+    }
+
+    // "other" => no gait-cycle analysis
+    return null;
+  }, [samples, session?.sessionType]);
 
   /* -----------------------------
      Guards

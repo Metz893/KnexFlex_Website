@@ -14,6 +14,7 @@ import { deleteDoc, doc } from "firebase/firestore";
 import type { Sample } from "@/lib/analytics";
 import { computeStats } from "@/lib/analytics";
 import { analyzeGaitAngles } from "@/lib/gaitAnalysis";
+import { analyzeSprintingAngles } from "@/lib/sprintGaitAnalysis";
 
 // ✅ IMPORTANT: adjust this import if your db export lives elsewhere
 import { db } from "./firebase";
@@ -55,12 +56,13 @@ export async function publishSessionToCommunity(args: {
   title: string;
   sourceSessionId: string;
   samples: Sample[];
+  sessionType?: "walk" | "sprint" | "other";
 }) {
-  const { ownerUid, ownerLabel, title, sourceSessionId, samples } = args;
+  const { ownerUid, ownerLabel, title, sourceSessionId, samples, sessionType } = args;
 
   const stats = computeStats(samples);
   const angles = samples.map((s) => s.angle);
-  const gait = analyzeGaitAngles(angles);
+  const gait = (sessionType ?? "walk") === "sprint" ? analyzeSprintingAngles(angles) : (sessionType ?? "walk") === "walk" ? analyzeGaitAngles(angles) : null;
 
   if (!gait) {
     throw new Error("No valid gait cycles detected for this session.");

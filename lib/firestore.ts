@@ -14,6 +14,9 @@ import {
   limit,
 } from "firebase/firestore";
 import { db } from "./firebase";
+
+export type SessionType = "walk" | "sprint" | "other";
+
 import type { SessionDoc } from "./fileTransfer";
 
 /* =========================
@@ -40,6 +43,9 @@ export type CloudSession = {
   injury?: string;
   weeksSinceInjury?: number;
   schemaVersion?: number;
+
+  // ✅ NEW
+  sessionType?: SessionType;
 };
 
 export type ShareLink = {
@@ -70,7 +76,7 @@ export type AnalyticsCache = {
 };
 
 /* =========================
-   Sessions (existing)
+   Sessions
 ========================= */
 
 export async function uploadSessionToCloud(userId: string, s: SessionDoc) {
@@ -85,6 +91,9 @@ export async function uploadSessionToCloud(userId: string, s: SessionDoc) {
     sampleCount: s.samples.length,
     device: s.device ?? {},
     format: "knexflex_session_v2",
+
+    // ✅ default (keeps old behavior)
+    sessionType: (s as any)?.sessionType ?? "walk",
   });
 }
 
@@ -104,7 +113,8 @@ export async function listCloudSessions(userId: string) {
       createdAt: x.createdAt,
       createdAtMs: x.createdAtMs ?? Date.now(),
       samples: Array.isArray(x.samples) ? x.samples : [],
-      sampleCount: x.sampleCount ?? (Array.isArray(x.samples) ? x.samples.length : 0),
+      sampleCount:
+        x.sampleCount ?? (Array.isArray(x.samples) ? x.samples.length : 0),
       device: x.device ?? {},
       format: x.format ?? "knexflex_session_v2",
 
@@ -114,6 +124,9 @@ export async function listCloudSessions(userId: string) {
       injury: x.injury,
       weeksSinceInjury: x.weeksSinceInjury,
       schemaVersion: x.schemaVersion,
+
+      // ✅ FIX: read it back from Firestore
+      sessionType: (x.sessionType as SessionType) ?? "walk",
     }));
 
   return rows;
@@ -144,6 +157,9 @@ export async function getCloudSession(id: string) {
     injury: x.injury,
     weeksSinceInjury: x.weeksSinceInjury,
     schemaVersion: x.schemaVersion,
+
+    // ✅ FIX: include sessionType here too
+    sessionType: (x.sessionType as SessionType) ?? "walk",
   } as CloudSession;
 }
 
@@ -155,9 +171,12 @@ export async function deleteCloudSession(id: string) {
    Update session metadata (Vault / labeling)
 ========================= */
 
-export async function updateSessionMeta(sessionId: string, patch: Partial<CloudSession>) {
+export async function updateSessionMeta(
+  sessionId: string,
+  patch: Partial<CloudSession>
+) {
   const ref = doc(db, "sessions", sessionId);
-  // Only write fields we allow
+
   const safe: any = {};
   const keys: (keyof CloudSession)[] = [
     "displayName",
@@ -167,10 +186,13 @@ export async function updateSessionMeta(sessionId: string, patch: Partial<CloudS
     "leg",
     "injury",
     "weeksSinceInjury",
+    "sessionType",
   ];
+
   for (const k of keys) {
     if (patch[k] !== undefined) safe[k] = patch[k];
   }
+
   await updateDoc(ref, safe);
 }
 
@@ -179,7 +201,11 @@ export async function updateSessionMeta(sessionId: string, patch: Partial<CloudS
 ========================= */
 
 export async function listFolders(userId: string): Promise<VaultFolder[]> {
-  const qy = query(collection(db, "vault_folders"), where("userId", "==", userId), orderBy("createdAtMs", "desc"));
+  const qy = query(
+    collection(db, "vault_folders"),
+    where("userId", "==", userId),
+    orderBy("createdAtMs", "desc")
+  );
   const snap = await getDocs(qy);
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as any;
 }
@@ -199,9 +225,11 @@ export async function createFolder(userId: string, name: string) {
 ========================= */
 
 function randomToken() {
-  // URL-safe token
   const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 export async function createShareLink(params: {
@@ -219,43 +247,22 @@ export async function createShareLink(params: {
     expiresAtMs: params.expiresAtMs ?? null,
     revoked: false,
   });
+
   return { id: docRef.id, token };
 }
 
-export async function getShareLinkByToken(token: string): Promise<ShareLink | null> {
-  const qy = query(collection(db, "shared_links"), where("token", "==", token), limit(1));
+export async function getShareLinkByToken(token: string) {
+  const qy = query(
+    collection(db, "shared_links"),
+    where("token", "==", token),
+    limit(1)
+  );
   const snap = await getDocs(qy);
-  if (snap.empty) return null;
   const d = snap.docs[0];
-  return { id: d.id, ...(d.data() as any) } as any;
+  if (!d) return null;
+  return { id: d.id, ...(d.data() as any) } as ShareLink;
 }
 
 export async function revokeShareLink(id: string) {
   await updateDoc(doc(db, "shared_links", id), { revoked: true });
-}
-
-/* =========================
-   Analytics cache (optional but nice)
-========================= */
-
-export async function upsertAnalyticsCache(userId: string, sessionId: string, payload: any) {
-  // simplest version: add new doc each time (fine at small scale)
-  await addDoc(collection(db, "analytics_cache"), {
-    userId,
-    sessionId,
-    updatedAtMs: Date.now(),
-    ...payload,
-  });
-}
-
-export async function listAnalyticsCache(userId: string, sessionId: string): Promise<AnalyticsCache[]> {
-  const qy = query(
-    collection(db, "analytics_cache"),
-    where("userId", "==", userId),
-    where("sessionId", "==", sessionId),
-    orderBy("updatedAtMs", "desc"),
-    limit(5)
-  );
-  const snap = await getDocs(qy);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as any;
 }

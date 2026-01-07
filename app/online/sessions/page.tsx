@@ -9,12 +9,11 @@ import { useAuth } from "@/lib/auth";
 import {
   listCloudSessions,
   deleteCloudSession,
-  type CloudSession
+  type CloudSession,
+  type SessionType,
 } from "@/lib/firestore";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-
-
 
 export default function OnlineSessions() {
   const { user } = useAuth();
@@ -25,9 +24,6 @@ export default function OnlineSessions() {
   const [tag, setTag] = useState("");
   const [sort, setSort] = useState<"new" | "old" | "samples">("new");
 
-  // -----------------------------
-  // NEW: rename state
-  // -----------------------------
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempName, setTempName] = useState("");
 
@@ -66,7 +62,8 @@ export default function OnlineSessions() {
       const name = (s.displayName ?? s.title ?? "").toLowerCase();
       const notes = (s.notes ?? "").toLowerCase();
       const tags = (s.tags ?? []).join(" ").toLowerCase();
-      const okTerm = !term || name.includes(term) || notes.includes(term) || tags.includes(term);
+      const okTerm =
+        !term || name.includes(term) || notes.includes(term) || tags.includes(term);
       const okTag = !tag || (s.tags ?? []).includes(tag);
       return okTerm && okTag;
     });
@@ -111,7 +108,9 @@ export default function OnlineSessions() {
           >
             <option value="">All tags</option>
             {tags.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <option key={t} value={t}>
+                {t}
+              </option>
             ))}
           </select>
 
@@ -135,7 +134,15 @@ export default function OnlineSessions() {
         ) : (
           <div className="space-y-2">
             {filtered.map((s) => {
-              const created = s.createdAt?.toDate?.() ?? new Date(s.createdAtMs);
+              const created =
+                s.createdAt?.toDate?.() ?? new Date(s.createdAtMs);
+
+              const typeLabel =
+                (s.sessionType ?? "walk") === "walk"
+                  ? "Walk"
+                  : (s.sessionType ?? "walk") === "sprint"
+                  ? "Sprint"
+                  : "Other";
 
               return (
                 <div
@@ -160,7 +167,8 @@ export default function OnlineSessions() {
                     )}
 
                     <div className="text-xs text-slate-500">
-                      {created.toLocaleString()} • {s.sampleCount} samples
+                      {created.toLocaleString()} • {s.sampleCount} samples •{" "}
+                      {typeLabel}
                     </div>
 
                     {s.tags?.length ? (
@@ -178,11 +186,42 @@ export default function OnlineSessions() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <select
+                      value={s.sessionType ?? "walk"}
+                      onChange={async (e) => {
+                        const v = e.target.value as SessionType;
+
+                        // ✅ Optimistic UI update so it doesn't "snap back"
+                        setSessions((prev) =>
+                          prev.map((x) =>
+                            x.id === s.id ? { ...x, sessionType: v } : x
+                          )
+                        );
+
+                        try {
+                          await updateDoc(doc(db, "sessions", s.id), {
+                            sessionType: v,
+                          });
+                          await load();
+                        } catch (err) {
+                          // revert if write fails
+                          await load();
+                          alert("Failed to update session type.");
+                        }
+                      }}
+                      className="rounded-lg border bg-white px-2 py-1.5 text-xs text-slate-700"
+                      title="Session type"
+                    >
+                      <option value="walk">Walk</option>
+                      <option value="sprint">Sprint</option>
+                      <option value="other">Other</option>
+                    </select>
+
                     <button
                       onClick={async () => {
                         if (editingId === s.id) {
                           await updateDoc(doc(db, "sessions", s.id), {
-                            displayName: tempName
+                            displayName: tempName,
                           });
                           setEditingId(null);
                           await load();
