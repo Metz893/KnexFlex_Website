@@ -47,8 +47,25 @@ export default function GaitCycleChart({
             tickFormatter={(v) => `${v}°`}
             label={{ value: "Angle", angle: -90, position: "insideLeft" }}
           />
+
+          {/* ✅ Tooltip: hide c0/c1/c2/... entries, show only avg */}
           <Tooltip
-            formatter={(v: any) => `${Number(v).toFixed(1)}°`}
+            formatter={(v: any, name: any) => {
+              if (isComparison) {
+                if (name === "avg") {
+                  return [`${Number(v).toFixed(1)}°`, "Average"];
+                }
+                if (typeof name === "string" && name.startsWith("c")) {
+                  return [`${Number(v).toFixed(1)}°`, "Comparison"];
+                }
+                return null;
+              }
+              // hide all cycle series in tooltip
+              if (typeof name === "string" && name.startsWith("c")) return null;
+
+              // show avg only
+              return [`${Number(v).toFixed(1)}°`, "Average"];
+            }}
             labelFormatter={(l) => `Time: ${l}%`}
           />
 

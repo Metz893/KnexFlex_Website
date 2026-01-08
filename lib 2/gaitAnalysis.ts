@@ -1,7 +1,5 @@
 // lib/gaitAnalysis.ts
 // Browser-safe, TypeScript-native version of your Python gait analysis
-// Small change: accept a wider range of gait cycles (more tolerant for abnormal / impaired gait)
-// Function + outputs stay the same.
 
 export type GaitCycleResult = {
   cycles: number[][];
@@ -16,21 +14,21 @@ export type GaitCycleResult = {
    MAIN ENTRY POINT
 ============================ */
 
-export function analyzeGaitAngles(angles: number[]): GaitCycleResult | null {
+export function analyzeGaitAngles(
+  angles: number[]
+): GaitCycleResult | null {
   if (angles.length < 200) return null;
 
   /* ----------------------------
      STEP 1: Peak detection
      (replacement for scipy.find_peaks)
-     Small change: allow weaker peaks by lowering threshold slightly
-     and using >= on one side to be less strict.
   ---------------------------- */
   const rawPeaks: number[] = [];
   for (let i = 20; i < angles.length - 20; i++) {
     if (
-      angles[i] > 35 && // was 40
+      angles[i] > 40 &&
       angles[i] > angles[i - 1] &&
-      angles[i] >= angles[i + 1]
+      angles[i] > angles[i + 1]
     ) {
       rawPeaks.push(i);
     }
@@ -38,58 +36,24 @@ export function analyzeGaitAngles(angles: number[]): GaitCycleResult | null {
 
   /* ----------------------------
      STEP 2: Extract windows
-     Small change: slightly relax abrupt-change rejection
-
-     NEW FIX:
-     - For each detected peak, look inside the would-be window for a higher peak.
-     - Re-center on that true highest peak.
-     - DEDUPE: if multiple raw peaks map to the same true highest peak, keep only one cycle.
   ---------------------------- */
   const normalizedCycles: number[][] = [];
 
-  // ✅ NEW: track centers we’ve already used (prevents double-counting same real peak)
-  const usedCenters = new Set<number>();
-
   for (const peakIdx of rawPeaks) {
-    // initial window based on detected peak
-    let start = peakIdx - 65;
-    let end = peakIdx + 30;
+    const start = peakIdx - 65;
+    const end = peakIdx + 30;
 
     if (start < 0 || end >= angles.length) continue;
-
-    // Find the highest point inside this window and re-center if needed
-    let bestIdx = peakIdx;
-    let bestVal = angles[peakIdx];
-
-    for (let i = start; i <= end; i++) {
-      const v = angles[i];
-      if (v > bestVal) {
-        bestVal = v;
-        bestIdx = i;
-      }
-    }
-
-    // Re-center the window on the true highest point (bestIdx)
-    start = bestIdx - 65;
-    end = bestIdx + 30;
-
-    if (start < 0 || end >= angles.length) continue;
-
-    // ✅ NEW: dedupe cycles that would be centered on the same true peak
-    if (usedCenters.has(bestIdx)) continue;
-    usedCenters.add(bestIdx);
 
     const cycle = angles.slice(start, end);
 
     // Abrupt change rejection (≥ 20° rule)
-    // Small change: allow a bit more variability (was 20)
     let reject = false;
     for (let i = 1; i < cycle.length - 1; i++) {
       const jump =
         Math.abs(cycle[i] - cycle[i - 1]) +
         Math.abs(cycle[i + 1] - cycle[i]);
-      if (jump >= 26) {
-        // was 20
+      if (jump >= 20) {
         reject = true;
         break;
       }
@@ -109,12 +73,16 @@ export function analyzeGaitAngles(angles: number[]): GaitCycleResult | null {
 
   /* ----------------------------
      STEP 4: MSE filtering (keep best 80%)
-     Small change: keep more cycles (more inclusive)
   ---------------------------- */
-  const mseValues = cyclesArray.map((c) => meanSquaredError(c, averageCycle));
+  const mseValues = cyclesArray.map((c) =>
+    meanSquaredError(c, averageCycle)
+  );
 
-  const threshold = percentile(mseValues, 90); // was 80
-  cyclesArray = cyclesArray.filter((_, i) => mseValues[i] <= threshold);
+  const threshold = percentile(mseValues, 80);
+
+  cyclesArray = cyclesArray.filter(
+    (_, i) => mseValues[i] <= threshold
+  );
 
   if (!cyclesArray.length) return null;
 
@@ -122,7 +90,6 @@ export function analyzeGaitAngles(angles: number[]): GaitCycleResult | null {
 
   /* ----------------------------
      STEP 4.5: Peak validation
-     Small change: widen acceptance ranges for peak flex/extension differences
   ---------------------------- */
   const avgPeakFlex = Math.max(...averageCycle);
   const avgPeakExt = Math.min(...averageCycle);
@@ -134,8 +101,8 @@ export function analyzeGaitAngles(angles: number[]): GaitCycleResult | null {
     const pe = cycle[peIdx];
 
     return (
-      Math.abs(pf - avgPeakFlex) <= 22 && // was 15
-      Math.abs(pe - avgPeakExt) <= 15 // was 10
+      Math.abs(pf - avgPeakFlex) <= 15 &&
+      Math.abs(pe - avgPeakExt) <= 10
     );
   });
 
@@ -148,7 +115,10 @@ export function analyzeGaitAngles(angles: number[]): GaitCycleResult | null {
   ---------------------------- */
   const peakFlexionIndex = indexOfMax(averageCycle);
   const heelStrikeIndex = indexOfMin(averageCycle);
-  const toeOffIndex = findSecondMinFarFrom(averageCycle, heelStrikeIndex);
+  const toeOffIndex = findSecondMinFarFrom(
+    averageCycle,
+    heelStrikeIndex
+  );
 
   return {
     cycles: cyclesArray,
@@ -212,14 +182,18 @@ function indexOfMin(arr: number[]): number {
   return arr.reduce((min, v, i, a) => (v < a[min] ? i : min), 0);
 }
 
-function findSecondMinFarFrom(arr: number[], excludeIdx: number): number {
+function findSecondMinFarFrom(
+  arr: number[],
+  excludeIdx: number
+): number {
   const indices = arr
     .map((v, i) => ({ v, i }))
     .sort((a, b) => a.v - b.v)
     .map((x) => x.i);
 
   return (
-    indices.find((i) => i !== excludeIdx && Math.abs(i - excludeIdx) > 10) ??
-    excludeIdx
+    indices.find(
+      (i) => i !== excludeIdx && Math.abs(i - excludeIdx) > 10
+    ) ?? excludeIdx
   );
 }

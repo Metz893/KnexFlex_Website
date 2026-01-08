@@ -60,7 +60,7 @@ export default function GaitLabPage() {
     [compareSamples]
   );
 
-  // ✅ NEW: choose analyzer by sessionType (active)
+  // ✅ choose analyzer by sessionType (active)
   const gait = useMemo(() => {
     const t = getType(active);
     if (t === "other") return null;
@@ -68,7 +68,7 @@ export default function GaitLabPage() {
     return analyzeGaitAngles(angles);
   }, [angles, active]);
 
-  // ✅ NEW: choose analyzer by sessionType (compare)
+  // ✅ choose analyzer by sessionType (compare)
   const compareGait = useMemo(() => {
     if (!compareId) return null;
     const t = getType(compare);
@@ -76,6 +76,83 @@ export default function GaitLabPage() {
     if (t === "sprint") return analyzeSprintingAngles(compareAngles);
     return analyzeGaitAngles(compareAngles);
   }, [compareAngles, compare, compareId]);
+
+  // ✅ NEW: Key stats for the AVERAGE cycle (computed from gait.averageCycle)
+  const avgCycleStats = useMemo(() => {
+    if (!gait?.averageCycle?.length) return null;
+
+    const a = gait.averageCycle;
+
+    let min = Infinity;
+    let max = -Infinity;
+    let sum = 0;
+
+    for (const v of a) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+      sum += v;
+    }
+
+    const mean = sum / a.length;
+    const overall = max - min; // spread of the average curve
+
+    return { min, max, mean, overall };
+  }, [gait]);
+
+  // ✅ NEW: Key stats for ALL cycles in the session (computed from gait.cycles)
+  const allCyclesStats = useMemo(() => {
+    if (!gait?.cycles?.length) return null;
+
+    const cycles = gait.cycles;
+
+    let globalMin = Infinity;
+    let globalMax = -Infinity;
+
+    const cycleMeans: number[] = [];
+    const cycleRanges: number[] = [];
+
+    for (const c of cycles) {
+      if (!c?.length) continue;
+
+      let cMin = Infinity;
+      let cMax = -Infinity;
+      let cSum = 0;
+
+      for (const v of c) {
+        if (v < cMin) cMin = v;
+        if (v > cMax) cMax = v;
+        cSum += v;
+      }
+
+      const cMean = cSum / c.length;
+      const cRange = cMax - cMin;
+
+      cycleMeans.push(cMean);
+      cycleRanges.push(cRange);
+
+      if (cMin < globalMin) globalMin = cMin;
+      if (cMax > globalMax) globalMax = cMax;
+    }
+
+    if (!cycleMeans.length) return null;
+
+    const meanOfMeans =
+      cycleMeans.reduce((a, b) => a + b, 0) / cycleMeans.length;
+
+    const meanRange =
+      cycleRanges.reduce((a, b) => a + b, 0) / cycleRanges.length;
+
+    const overall = globalMax - globalMin; // overall spread across all cycles
+
+    return {
+      cyclesKept: cycles.length,
+      globalMin,
+      globalMax,
+      meanOfMeans,
+      meanRange,
+      overall,
+    };
+  }, [gait]);
 
   const comparisonStats = useMemo(() => {
     if (!gait || !compareGait) return null;
@@ -118,8 +195,11 @@ export default function GaitLabPage() {
         }
       />
 
-      {/* ORIGINAL — UNCHANGED (except gait source) */}
-      <Card title="Normalized Cycles">
+      {/* =========================
+          SINGLE SESSION — AREA 1
+          Average gait-cycle graph + key stats from the AVERAGE curve
+         ========================= */}
+      <Card title="Average Gait Cycle (Key Data)">
         {!gait ? (
           <p className="text-sm text-slate-600">
             Not enough valid cycles detected for this session type. Try a longer session
@@ -128,17 +208,46 @@ export default function GaitLabPage() {
         ) : (
           <div className="space-y-4">
             <GaitCycleChart cycles={gait.cycles} average={gait.averageCycle} />
+
             <div className="grid gap-3 md:grid-cols-4">
-              <Stat label="Cycles kept" value={gait.cycles.length} />
               <Stat label="Heel strike" value={`${gait.heelStrikeIndex}%`} />
               <Stat label="Toe off" value={`${gait.toeOffIndex}%`} />
               <Stat label="Peak flex" value={`${gait.peakFlexion.toFixed(1)}°`} />
+              <Stat
+                label="Avg mean"
+                value={
+                  avgCycleStats ? `${avgCycleStats.mean.toFixed(2)}°` : "—"
+                }
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <Stat
+                label="Avg min / max"
+                value={
+                  avgCycleStats
+                    ? `${avgCycleStats.min.toFixed(2)}° / ${avgCycleStats.max.toFixed(2)}°`
+                    : "—"
+                }
+              />
+              <Stat
+                label="Avg overall"
+                value={
+                  avgCycleStats ? `${avgCycleStats.overall.toFixed(2)}°` : "—"
+                }
+              />
+              <Stat label="Cycles kept" value={gait.cycles.length} />
             </div>
           </div>
         )}
       </Card>
 
-      {/* ADVANCED COMPARISON */}
+      {/* =========================
+          SINGLE SESSION — AREA 2
+          Key data across ALL gait cycles in that session
+         ========================= */}
+
+      {/* ADVANCED COMPARISON (UNCHANGED) */}
       <Card
         title="Average Cycle Comparison"
         right={
@@ -164,13 +273,11 @@ export default function GaitLabPage() {
           </p>
         ) : (
           <div className="space-y-6">
-            {/* Separate comparison graph */}
             <GaitCycleChart
               cycles={[compareGait.averageCycle]}
               average={gait.averageCycle}
             />
 
-            {/* Quantitative comparison */}
             {comparisonStats && (
               <div className="grid gap-3 md:grid-cols-4">
                 <Stat
@@ -192,7 +299,6 @@ export default function GaitLabPage() {
               </div>
             )}
 
-            {/* Interpretation */}
             <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
               <p>
                 This comparison overlays the <b>average gait cycle</b> from two sessions.
@@ -205,6 +311,7 @@ export default function GaitLabPage() {
         )}
       </Card>
 
+      {/* Interpretation Guide (UNCHANGED) */}
       <Card title="Interpretation Guide">
         <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
           <li>Bold line = current session average</li>
