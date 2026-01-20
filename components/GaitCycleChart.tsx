@@ -60,6 +60,7 @@ export default function GaitCycleChart({
                 }
                 return null;
               }
+              
               // hide all cycle series in tooltip
               if (typeof name === "string" && name.startsWith("c")) return null;
 

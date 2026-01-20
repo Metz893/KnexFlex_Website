@@ -38,6 +38,7 @@ export default function Navbar() {
           </Link>
           <Item href="/online/dashboard" label="Dashboard" />
           <Item href="/online/sessions" label="Sessions" />
+          <Item href="/online/gait-similarity" label="Gait Similarity" />
           <Item href="/online/import" label="Import" />
           <Item href="/online/community" label="Community" />
         </div>

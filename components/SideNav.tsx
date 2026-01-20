@@ -9,6 +9,7 @@ const items = [
   { href: "/online/vault", label: "Data Vault" },
   { href: "/online/analytics", label: "Advanced Analytics" },
   { href: "/online/gait-lab", label: "Gait Lab" },
+  {href: "/online/gait-similarity", label: "Gait Similarity"},
   { href: "/online/compare", label: "Compare" },
   { href: "/online/reports", label: "Reports" },
   { href: "/online/community", label: "Community" },
