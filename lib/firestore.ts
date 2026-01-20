@@ -128,6 +128,11 @@ export async function listCloudSessions(userId: string) {
       // ✅ FIX: read it back from Firestore
       sessionType: (x.sessionType as SessionType) ?? "walk",
     }));
+    rows.sort((a, b) => {
+      const nameA = (a.displayName ?? a.title ?? "").toLowerCase();
+      const nameB = (b.displayName ?? b.title ?? "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
 
   return rows;
 }

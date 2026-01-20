@@ -1,3 +1,3 @@
 git add .
-git commit -m "Gait Lab: works will all deficincies"
+git commit -m "Alphabetical order"
 git push origin main
