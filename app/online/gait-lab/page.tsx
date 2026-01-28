@@ -18,6 +18,36 @@ function getType(s: any): SessionType {
   return "walk"; // default for older sessions
 }
 
+// ✅ NEW: download helper (only the averaged cycle values)
+// ✅ NEW: download helper (only the averaged cycle values)
+function downloadAverageCycleJSON(avg: number[], fileBaseName: string) {
+  // Map averaged cycle to { angle, t } objects
+  const payload = avg.map((angle, i) => ({
+    angle,
+    t: Math.round((i / (avg.length - 1)) * 100), // % of gait cycle
+  }));
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+
+  const safeName = (fileBaseName || "average_gait_cycle")
+    .replace(/[^\w\-]+/g, "_")
+    .slice(0, 80);
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safeName}.json`;
+  document.body.appendChild(a);
+  a.click();
+
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+
 export default function GaitLabPage() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<any[]>([]);
@@ -320,6 +350,24 @@ export default function GaitLabPage() {
           <li>Timing shifts may indicate cadence or asymmetry changes</li>
         </ul>
       </Card>
+
+      {/* ✅ NEW: Download button at bottom */}
+      <div className="pt-2">
+        <button
+          type="button"
+          disabled={!gait?.averageCycle?.length}
+          onClick={() =>
+            gait?.averageCycle?.length &&
+            downloadAverageCycleJSON(
+              gait.averageCycle,
+              active?.displayName ?? active?.title ?? "average_gait_cycle"
+            )
+          }
+          className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          Download average gait cycle (.json)
+        </button>
+      </div>
     </div>
   );
 }
