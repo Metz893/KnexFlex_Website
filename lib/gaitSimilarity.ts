@@ -36,7 +36,59 @@ function indexOfMax(arr: number[]): number {
   return idx;
 }
 
-export type SimilarityMode = "shapeOnlyIgnoreShift" | "shapePlusShift";
+/**
+ * Circularly shift an array by k samples (k can be negative).
+ * Positive k shifts to the right.
+ */
+function circularShift(x: number[], k: number): number[] {
+  const n = x.length;
+  const out = new Array<number>(n);
+  const kk = ((k % n) + n) % n;
+  for (let i = 0; i < n; i++) {
+    out[(i + kk) % n] = x[i];
+  }
+  return out;
+}
+
+/**
+ * Find the best circular alignment (horizontal shift) between two curves by
+ * trying all shifts and choosing the one with the smallest RMSE.
+ * - If removeMean is true, mean-center both signals before aligning (ignores vertical shift).
+ * Returns aligned versions and the chosen shift.
+ */
+function bestCircularAlignment(
+  a: number[],
+  b: number[],
+  removeMean: boolean
+): { aAligned: number[]; bAligned: number[]; shiftSamples: number; rmseDeg: number } {
+  const aa = removeMean ? removeVerticalShift(a) : a;
+  const bb = removeMean ? removeVerticalShift(b) : b;
+
+  let bestShift = 0;
+  let bestErr = Infinity;
+
+  // brute force over all possible circular shifts (length is 100 in our use-case)
+  for (let k = 0; k < aa.length; k++) {
+    const bShifted = circularShift(bb, k);
+    const e = rmse(aa, bShifted);
+    if (e < bestErr) {
+      bestErr = e;
+      bestShift = k;
+    }
+  }
+
+  return {
+    aAligned: aa,
+    bAligned: circularShift(bb, bestShift),
+    shiftSamples: bestShift,
+    rmseDeg: bestErr,
+  };
+}
+
+export type SimilarityMode =
+  | "shapeOnlyIgnoreShift"
+  | "shapePlusShift"
+  | "shapeOnlyIgnoreShiftAndTiming";
 
 export type SimilarityConfig = {
   /**
@@ -44,6 +96,7 @@ export type SimilarityConfig = {
    * Units depend on mode:
    * - shapeOnlyIgnoreShift: degrees (after mean removal)
    * - shapePlusShift: degrees (raw)
+   * - shapeOnlyIgnoreShiftAndTiming: degrees (after mean removal + best horizontal alignment)
    */
   shapeSigmaDeg?: number;
 
@@ -81,14 +134,21 @@ export type GaitSimilarity = {
   };
   romDeltaDeg: number;
   notes?: string;
+
+  /**
+   * Only populated for the "ignore vertical + horizontal shift" mode.
+   * This tells you how many samples B was circularly shifted to best match A.
+   */
+  timingShiftSamples?: number;
 };
 
 /**
  * Main similarity scorer for average gait cycles.
  *
- * Two modes:
+ * Three modes:
  * - "shapeOnlyIgnoreShift": subtract mean from each curve => ignores vertical shift only
  * - "shapePlusShift": compare raw curves => vertical shift affects similarity
+ * - "shapeOnlyIgnoreShiftAndTiming": mean-center + best circular alignment => ignores vertical + horizontal shift
  *
  * Score uses smooth exponential factors so it’s *forgiving* (configurable).
  */
@@ -100,14 +160,20 @@ export function gaitSimilarityScore(
 ): GaitSimilarity {
   const maxScore = config.maxScore ?? 1000;
 
-  // Forgiving defaults (looser than your previous ones)
+  // More forgiving defaults (higher sigmas + lower weights)
   const shapeSigmaDeg =
-    config.shapeSigmaDeg ?? (mode === "shapeOnlyIgnoreShift" ? 12 : 14);
-  const eventSigmaSamples = config.eventSigmaSamples ?? 20;
-  const romSigmaDeg = config.romSigmaDeg ?? 18;
+    config.shapeSigmaDeg ??
+    (mode === "shapeOnlyIgnoreShift"
+      ? 18
+      : mode === "shapeOnlyIgnoreShiftAndTiming"
+      ? 18
+      : 22);
 
-  const eventWeight = config.eventWeight ?? 0.35;
-  const romWeight = config.romWeight ?? 0.25;
+  const eventSigmaSamples = config.eventSigmaSamples ?? 35;
+  const romSigmaDeg = config.romSigmaDeg ?? 32;
+
+  const eventWeight = config.eventWeight ?? 0.18;
+  const romWeight = config.romWeight ?? 0.12;
 
   const aAvg = A.averageCycle;
   const bAvg = B.averageCycle;
@@ -126,14 +192,28 @@ export function gaitSimilarityScore(
   }
 
   // --- Shape term ---
-  const aForShape =
-    mode === "shapeOnlyIgnoreShift" ? removeVerticalShift(aAvg) : aAvg;
-  const bForShape =
-    mode === "shapeOnlyIgnoreShift" ? removeVerticalShift(bAvg) : bAvg;
+  let shapeErrDeg: number;
+  let timingShiftSamples: number | undefined;
 
-  const shapeErrDeg = rmse(aForShape, bForShape);
+  let aForShape = aAvg;
+  let bForShape = bAvg;
+
+  if (mode === "shapeOnlyIgnoreShift") {
+    aForShape = removeVerticalShift(aAvg);
+    bForShape = removeVerticalShift(bAvg);
+    shapeErrDeg = rmse(aForShape, bForShape);
+  } else if (mode === "shapeOnlyIgnoreShiftAndTiming") {
+    const aligned = bestCircularAlignment(aAvg, bAvg, true);
+    aForShape = aligned.aAligned;
+    bForShape = aligned.bAligned;
+    shapeErrDeg = aligned.rmseDeg;
+    timingShiftSamples = aligned.shiftSamples;
+  } else {
+    // "shapePlusShift"
+    shapeErrDeg = rmse(aForShape, bForShape);
+  }
+
   const shapeFactor = Math.exp(-shapeErrDeg / shapeSigmaDeg);
-  // shapeFactor is 1 when identical, gently decays as differences grow.
 
   // --- Events term (optional) ---
   const aPeakIdx = indexOfMax(aAvg);
@@ -156,13 +236,19 @@ export function gaitSimilarityScore(
   // Combine
   const score = clamp(maxScore * shapeFactor * eventFactor * romFactor, 0, maxScore);
 
-  return {
+  const out: GaitSimilarity = {
     mode,
     score,
     shapeRmseDeg: shapeErrDeg,
     eventDelta: { heelStrike: dHeel, toeOff: dToe, peakFlexion: dPeak },
     romDeltaDeg: dRom,
   };
+
+  if (mode === "shapeOnlyIgnoreShiftAndTiming") {
+    out.timingShiftSamples = timingShiftSamples ?? 0;
+  }
+
+  return out;
 }
 
 /**
@@ -182,4 +268,17 @@ export function gaitSimilarityWithShift(
   config: SimilarityConfig = {}
 ) {
   return gaitSimilarityScore(A, B, "shapePlusShift", config);
+}
+
+/**
+ * NEW: ignores both vertical shift (mean) AND horizontal shift (timing)
+ * by circularly aligning B to best match A before computing shape RMSE.
+ * This compares the "pure shape" when perfectly aligned.
+ */
+export function gaitSimilarityShapeAligned(
+  A: GaitCycleResult,
+  B: GaitCycleResult,
+  config: SimilarityConfig = {}
+) {
+  return gaitSimilarityScore(A, B, "shapeOnlyIgnoreShiftAndTiming", config);
 }

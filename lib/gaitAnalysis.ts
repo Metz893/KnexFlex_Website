@@ -51,29 +51,59 @@ export function analyzeGaitAngles(angles: number[]): GaitCycleResult | null {
   const usedCenters = new Set<number>();
 
   for (const peakIdx of rawPeaks) {
-    // initial window based on detected peak
-    let start = peakIdx - 65;
-    let end = peakIdx + 30;
+  // ✅ compute spacing (samples between peaks)
+  let spacing = averagePeakSpacing(rawPeaks);
 
-    if (start < 0 || end >= angles.length) continue;
+  if (spacing == null) spacing = 100;
+  else if (spacing < 65) spacing = spacing * 2;
 
-    // Find the highest point inside this window and re-center if needed
-    let bestIdx = peakIdx;
-    let bestVal = angles[peakIdx];
+  // ✅ gradual adjustment:
+  // target cadence spacing ~100 samples
+  // spacing > 100  -> longer cycle -> widen window
+  // spacing < 100  -> shorter cycle -> narrow window
+  const target = 100;
+  const delta = spacing - target;
 
-    for (let i = start; i <= end; i++) {
-      const v = angles[i];
-      if (v > bestVal) {
-        bestVal = v;
-        bestIdx = i;
-      }
+  var widenend = Math.max(-10, Math.min(10, Math.round(delta * 0.2)));
+  var widenstart = Math.max(-10, Math.min(10, Math.round(delta * 0.6)));
+
+  // scale + clamp to keep changes small and stable
+  if (spacing < 95) {
+    widenend = 2;
+    widenstart = 2;
+  }
+  else if (spacing > 120) {
+    widenend = -2;
+    widenstart = -2;
+  }
+
+
+  // apply widening symmetrically (keeps the cycle centered similarly)
+  const before = 70 + widenstart; // samples before peak
+  const after = 30 + widenend;  // samples after peak
+
+  let start = peakIdx - before;
+  let end = peakIdx + after;
+
+  if (start < 0 || end >= angles.length) continue;
+
+  // Find the highest point inside this window and re-center if needed
+  let bestIdx = peakIdx;
+  let bestVal = angles[peakIdx];
+
+  for (let i = start; i <= end; i++) {
+    const v = angles[i];
+    if (v > bestVal) {
+      bestVal = v;
+      bestIdx = i;
     }
+  }
 
-    // Re-center the window on the true highest point (bestIdx)
-    start = bestIdx - 65;
-    end = bestIdx + 30;
+  // Re-center using the same adaptive window
+  start = bestIdx - before;
+  end = bestIdx + after;
 
-    if (start < 0 || end >= angles.length) continue;
+  if (start < 0 || end >= angles.length) continue;
 
     // ✅ NEW: dedupe cycles that would be centered on the same true peak
     if (usedCenters.has(bestIdx)) continue;
@@ -222,4 +252,17 @@ function findSecondMinFarFrom(arr: number[], excludeIdx: number): number {
     indices.find((i) => i !== excludeIdx && Math.abs(i - excludeIdx) > 10) ??
     excludeIdx
   );
+}
+
+function averagePeakSpacing(peaks: number[]): number | null {
+  if (peaks.length < 2) return null;
+
+  let sum = 0;
+  for (let i = 1; i < peaks.length; i++) {
+    sum += peaks[i] - peaks[i - 1];
+  }
+
+  console.log(sum / (peaks.length - 1));
+
+  return sum / (peaks.length - 1);
 }
