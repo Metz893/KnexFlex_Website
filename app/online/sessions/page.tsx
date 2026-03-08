@@ -14,6 +14,7 @@ import {
 } from "@/lib/firestore";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Timestamp } from "firebase/firestore"; // ✅ add
 
 export default function OnlineSessions() {
   const { user } = useAuth();
@@ -26,6 +27,9 @@ export default function OnlineSessions() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempName, setTempName] = useState("");
+
+  const [editingDateId, setEditingDateId] = useState<string | null>(null); // ✅ add
+  const [tempDate, setTempDate] = useState(""); // ✅ add (datetime-local value)
 
   const load = async () => {
     if (!user) {
@@ -167,8 +171,18 @@ export default function OnlineSessions() {
                     )}
 
                     <div className="text-xs text-slate-500">
-                      {created.toLocaleString()} • {s.sampleCount} samples •{" "}
-                      {typeLabel}
+                      {editingDateId === s.id ? (
+                        <input
+                          type="datetime-local"
+                          value={tempDate}
+                          onChange={(e) => setTempDate(e.target.value)}
+                          className="rounded-md border px-2 py-1 text-xs"
+                        />
+                      ) : (
+                        <>
+                          {created.toLocaleDateString()} • {s.sampleCount} samples • {typeLabel}
+                        </>
+                      )}
                     </div>
 
                     {s.tags?.length ? (
@@ -234,6 +248,38 @@ export default function OnlineSessions() {
                     >
                       {editingId === s.id ? "Save" : "Rename"}
                     </button>
+
+                    {/*
+                    <button
+                      onClick={async () => {
+                        if (editingDateId === s.id) {
+                          const ms = new Date(tempDate).getTime();
+                          if (!Number.isFinite(ms)) {
+                            alert("Invalid date/time.");
+                            return;
+                          }
+                          await updateDoc(doc(db, "sessions", s.id), {
+                            createdAtMs: ms,
+                            createdAt: Timestamp.fromMillis(ms),
+                          });
+                          setEditingDateId(null);
+                          await load();
+                        } else {
+                          setEditingDateId(s.id);
+                          const d = created;
+                          const pad = (n: number) => String(n).padStart(2, "0");
+                          setTempDate(
+                            `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+                              d.getDate()
+                            )}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                          );
+                        }
+                      }}
+                      className="rounded-lg border px-3 py-1.5 text-xs hover:bg-slate-50"
+                    >
+                      {editingDateId === s.id ? "Save date" : "Redate"}
+                    </button>
+                    */}
 
                     <Link
                       href={`/online/sessions/${s.id}`}

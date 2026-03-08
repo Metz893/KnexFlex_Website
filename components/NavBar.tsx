@@ -41,6 +41,7 @@ export default function Navbar() {
           <Item href="/online/gait-similarity" label="Gait Similarity" />
           <Item href="/online/import" label="Import" />
           <Item href="/online/community" label="Community" />
+          <Item href="/online/admin/sessions" label="Admin" />
         </div>
 
         <div className="flex gap-3 items-center">

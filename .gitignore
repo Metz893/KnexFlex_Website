@@ -13,6 +13,8 @@
 # testing
 /coverage
 
+serviceAccount.json
+
 # next.js
 /.next/
 /out/

@@ -168,10 +168,6 @@ export default function GaitSimilarityPage() {
 
             <div className="mt-3 grid gap-2 md:grid-cols-2 text-xs text-slate-600">
               <div>
-                <span className="text-slate-500">Accepted cycles:</span>{" "}
-                {aGait!.cycles.length} vs {bGait!.cycles.length}
-              </div>
-              <div>
                 <span className="text-slate-500">ROM:</span>{" "}
                 {aRom !== null ? aRom.toFixed(1) : "—"}° vs{" "}
                 {bRom !== null ? bRom.toFixed(1) : "—"}°
