@@ -149,7 +149,7 @@ export default function GaitSimilarityPage() {
               </>
             ) : (
               <>
-                Couldn’t extract a stable gait cycle from one of the sessions (peak detection + filtering rejected all
+                Couldn’t extract a stable gait cycle from one of the sessions (Peak detection + Filtering rejected all
                 cycles).
               </>
             )}
