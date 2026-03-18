@@ -12,7 +12,7 @@ export default function OnlineLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.replace("/#login");
   }, [loading, user, router]);
 
   return (

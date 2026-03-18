@@ -1,25 +1,26 @@
+// components/NavBar.tsx
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth";
-import { useRouter } from "next/navigation";
-
 
 export default function Navbar() {
   const { user } = useAuth();
-  const path = usePathname();
+  const pathname = usePathname();
   const router = useRouter();
 
-  const Item = ({ href, label }: any) => (
+  const isProtectedArea = pathname.startsWith("/online");
+
+  const Item = ({ href, label }: { href: string; label: string }) => (
     <Link
       href={href}
-      className={`px-3 py-1.5 rounded-lg text-sm ${
-        path.startsWith(href)
+      className={`rounded-lg px-3 py-1.5 text-sm transition ${
+        pathname.startsWith(href)
           ? "bg-blue-100 text-blue-700"
-          : "text-slate-600 hover:text-slate-900"
+          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
       }`}
     >
       {label}
@@ -27,36 +28,67 @@ export default function Navbar() {
   );
 
   return (
-    <header className="border-b bg-white">
-      <div className="max-w-6xl mx-auto flex justify-between px-4 py-3">
-        <div className="flex gap-4 items-center">
-          <Link
-            href="/online/dashboard"
-            className="font-semibold text-blue-600"
-          >
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-lg font-semibold text-blue-600">
             KnexFlex
           </Link>
-          <Item href="/online/dashboard" label="Dashboard" />
-          <Item href="/online/sessions" label="Sessions" />
-          <Item href="/online/gait-similarity" label="Gait Similarity" />
-          <Item href="/online/import" label="Import" />
-          <Item href="/online/community" label="Community" />
-          <Item href="/online/admin/sessions" label="Admin" />
+
+          {isProtectedArea && user && (
+            <nav className="hidden items-center gap-2 md:flex">
+              <Item href="/online/dashboard" label="Dashboard" />
+              <Item href="/online/sessions" label="Sessions" />
+              <Item href="/online/gait-similarity" label="Gait Similarity" />
+              <Item href="/online/import" label="Import" />
+              <Item href="/online/community" label="Community" />
+              <Item href="/online/admin/sessions" label="Admin" />
+            </nav>
+          )}
         </div>
 
-        <div className="flex gap-3 items-center">
-          <span className="text-xs text-slate-500">
-            {user?.email}
-          </span>
-          <button
-            onClick={async () => {
-              await signOut(auth);
-              router.replace("/login");
-          }}
-          className="border rounded-lg px-3 py-1.5 text-sm"
-          >
-            Sign out
-          </button>
+        <div className="flex items-center gap-2">
+          {!user ? (
+            <>
+              <a
+                href="/#login"
+                className="rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+              >
+                Log in
+              </a>
+              <a
+                href="/#login"
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700"
+              >
+                Sign up
+              </a>
+            </>
+          ) : (
+            <>
+              <span className="hidden text-xs text-slate-500 md:inline">
+                {user.email}
+              </span>
+
+              {!isProtectedArea && (
+                <Link
+                  href="/online/dashboard"
+                  className="rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                >
+                  Dashboard
+                </Link>
+              )}
+
+              <button
+                onClick={async () => {
+                  await signOut(auth);
+                  router.replace("/");
+                }}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              >
+                Sign out
+              </button>
+            </>
+          )}
         </div>
       </div>
     </header>
