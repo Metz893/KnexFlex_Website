@@ -1,43 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth";
 
 export default function HomePage() {
-  const router = useRouter();
-  const { user, loading } = useAuth();
-
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const submit = async () => {
-    setError(null);
-    setSubmitting(true);
-
-    try {
-      if (mode === "login") {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
-
-      router.replace("/online/dashboard");
-    } catch (e: any) {
-      setError(e?.message ?? "Authentication failed");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const { user } = useAuth();
 
   return (
     <div className="space-y-20 pb-16">
@@ -64,17 +31,25 @@ export default function HomePage() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <a
-                href="#login"
-                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
-              >
-                Get started
-              </a>
-
-              {user && (
+              {!user ? (
+                <>
+                  <Link
+                    href="/login"
+                    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
+                  >
+                    Log in
+                  </Link>
+                  <Link
+                    href="/login?mode=signup"
+                    className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Sign up
+                  </Link>
+                </>
+              ) : (
                 <Link
                   href="/online/dashboard"
-                  className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
                 >
                   Go to dashboard
                 </Link>
@@ -170,9 +145,7 @@ export default function HomePage() {
 
         <div className="mt-6 grid gap-6 md:grid-cols-3">
           <div className="rounded-2xl bg-slate-50 p-5">
-            <h3 className="text-base font-semibold text-slate-900">
-              Data-first
-            </h3>
+            <h3 className="text-base font-semibold text-slate-900">Data-first</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">
               We organize gait and session information into a structure that is
               easier to review and compare.
@@ -198,100 +171,6 @@ export default function HomePage() {
               analytics and rehabilitation hub.
             </p>
           </div>
-        </div>
-      </section>
-
-      {/* Login */}
-      <section
-        id="login"
-        className="mx-auto max-w-md rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-200"
-      >
-        <h2 className="text-2xl font-semibold text-slate-900">
-          {user ? (
-            <>
-              You are signed in to <span className="text-blue-600">KnexFlex</span>
-            </>
-          ) : (
-            <>
-              Access <span className="text-blue-600">KnexFlex</span>
-            </>
-          )}
-        </h2>
-
-        <p className="mt-2 text-sm text-slate-600">
-          {user
-            ? "You can stay on this homepage, or continue into your dashboard."
-            : "Log in or create an account to access the protected online tools."}
-        </p>
-
-        {!user ? (
-          <>
-            <div className="mt-6 flex gap-2 rounded-xl bg-slate-100 p-1">
-              <button
-                onClick={() => setMode("login")}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm ${
-                  mode === "login" ? "bg-white shadow-sm" : "text-slate-600"
-                }`}
-              >
-                Login
-              </button>
-              <button
-                onClick={() => setMode("signup")}
-                className={`flex-1 rounded-lg px-3 py-2 text-sm ${
-                  mode === "signup" ? "bg-white shadow-sm" : "text-slate-600"
-                }`}
-              >
-                Sign up
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              <input
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-              <input
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type="password"
-                autoComplete={
-                  mode === "signup" ? "new-password" : "current-password"
-                }
-              />
-
-              {error && <p className="text-sm text-red-600">{error}</p>}
-
-              <button
-                onClick={submit}
-                disabled={submitting}
-                className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-white transition hover:bg-blue-700 disabled:opacity-60"
-              >
-                {submitting
-                  ? "Please wait…"
-                  : mode === "login"
-                  ? "Login"
-                  : "Create account"}
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="mt-6">
-            <Link
-              href="/online/dashboard"
-              className="inline-flex rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-            >
-              Go to dashboard
-            </Link>
-          </div>
-        )}
-
-        <div className="mt-5 text-xs text-slate-500">
-          Protected sections remain behind login.
         </div>
       </section>
     </div>

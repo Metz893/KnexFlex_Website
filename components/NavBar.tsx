@@ -1,4 +1,3 @@
-// components/NavBar.tsx
 "use client";
 
 import Link from "next/link";
@@ -20,7 +19,7 @@ export default function Navbar() {
       className={`rounded-lg px-3 py-1.5 text-sm transition ${
         pathname.startsWith(href)
           ? "bg-blue-100 text-blue-700"
-          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
       }`}
     >
       {label}
@@ -50,25 +49,21 @@ export default function Navbar() {
         <div className="flex items-center gap-2">
           {!user ? (
             <>
-              <a
-                href="/#login"
+              <Link
+                href="/login"
                 className="rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
               >
                 Log in
-              </a>
-              <a
-                href="/#login"
+              </Link>
+              <Link
+                href="/login?mode=signup"
                 className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-700"
               >
                 Sign up
-              </a>
+              </Link>
             </>
           ) : (
             <>
-              <span className="hidden text-xs text-slate-500 md:inline">
-                {user.email}
-              </span>
-
               {!isProtectedArea && (
                 <Link
                   href="/online/dashboard"

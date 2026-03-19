@@ -1,4 +1,3 @@
-// app/online/layout.tsx
 "use client";
 
 import { useEffect } from "react";
@@ -7,12 +6,16 @@ import SideNav from "@/components/SideNav";
 import TopBar from "@/components/TopBar";
 import { useAuth } from "@/lib/auth";
 
-export default function OnlineLayout({ children }: { children: React.ReactNode }) {
+export default function OnlineLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/#login");
+    if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
 
   return (
